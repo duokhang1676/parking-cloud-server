@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"}],"uuid":"21e191a200254d9a8421798d8c92908e","collectionName":"parking_areas","type":"collection"}
