@@ -1,11 +1,17 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+from dotenv import load_dotenv
+import os
 
 def get_db():
     """
     Kết nối đến MongoDB và trả về đối tượng database.
     """
-    uri = "mongodb+srv://duongkhang1676:01678192452aA@db-cluster.95rw7.mongodb.net/?retryWrites=true&w=majority&appName=db-cluster"
+    # Load biến môi trường từ file .env
+    load_dotenv()
+
+    # Lấy connection string từ biến môi trường
+    uri = os.getenv("MONGO_URI")
 
     # Create a new client and connect to the server
     client = MongoClient(uri, server_api=ServerApi('1'))
@@ -19,3 +25,9 @@ def get_db():
 
     db = client["Smart_Parking"]
     return db
+
+
+db = get_db()
+customers_collection = db["customers"]  # Collection MongoDB
+customers = list(customers_collection.find({}, {"_id": 0}))
+print(customers)
