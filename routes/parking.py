@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from db import get_db
+from werkzeug.security import check_password_hash,generate_password_hash
 
 # Khởi tạo Blueprint cho parking
 parking_bp = Blueprint("parking", __name__)
@@ -26,16 +27,24 @@ def get_parking_id():
 @parking_bp.route("/", methods=["POST"])
 def create_parking():
     data = request.json
-    if not all(key in data for key in ("parking_id", "parking_name", "address", "status")):
+    required_fields = ("parking_id", "parking_name", "address", "status", "password")
+
+    if not all(key in data for key in required_fields):
         return jsonify({"error": "Missing fields"}), 400
 
     # Kiểm tra nếu parking_id đã tồn tại
     if parking_collection.find_one({"parking_id": data["parking_id"]}):
         return jsonify({"error": "Parking already exists"}), 400
 
+    # Mã hóa mật khẩu bằng werkzeug
+    hashed_password = generate_password_hash(data["password"])
+    data["password"] = hashed_password
+
+    # Thêm vào MongoDB
     parking_collection.insert_one(data)
     return jsonify({"message": "Parking created successfully"}), 201
 
+# Lấy thông tin chỗ đỗ xe theo tên và địa chỉ
 @parking_bp.route('/get_parking_slot', methods=['POST'])
 def get_parking_info():
     try:
@@ -65,3 +74,22 @@ def get_parking_info():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+# Cập nhật thông tin bãi đỗ xe
+@parking_bp.route("/<parking_id>", methods=["PUT"])
+def update_parking(parking_id):
+    data = request.json
+
+    if not data:
+        return jsonify({"error": "No update data provided"}), 400
+
+    # Nếu có cập nhật mật khẩu thì mã hóa
+    if "password" in data:
+        data["password"] = generate_password_hash(data["password"])
+
+    result = parking_collection.update_one({"parking_id": parking_id}, {"$set": data})
+
+    if result.matched_count == 0:
+        return jsonify({"error": "Parking not found"}), 404
+
+    return jsonify({"message": "Parking updated successfully"}), 200

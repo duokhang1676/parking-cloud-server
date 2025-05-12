@@ -20,7 +20,7 @@ def get_users():
 def create_user():
     data = request.json
     # Kiểm tra các trường cần thiết
-    if not all(key in data for key in ("user_id", "user_name", "phone", "password")):
+    if not all(key in data for key in ("user_id", "user_name", "password")):
         return jsonify({"error": "Missing fields"}), 400
 
     # Kiểm tra nếu user_id đã tồn tại
