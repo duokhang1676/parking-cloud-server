@@ -2,6 +2,7 @@ import pymongo
 from flask import Blueprint, request, jsonify
 from db import get_db
 from bson.objectid import ObjectId
+from datetime import datetime
 
 # Khởi tạo Blueprint
 history_bp = Blueprint("history", __name__)
@@ -16,7 +17,8 @@ def add_history():
         data = request.get_json()
 
         # Kiểm tra các trường bắt buộc
-        if not all(key in data for key in ("user_id", "parking_id", "license", "time_in", "time_out", "parking_time")):
+        required_fields = ["user_id", "parking_id", "license_plate", "time_in", "time_out", "parking_time", "total_price"]
+        if not all(key in data for key in required_fields):
             return jsonify({"error": "Missing required fields"}), 400
 
         # Kiểm tra user_id tồn tại
@@ -24,30 +26,28 @@ def add_history():
             return jsonify({"error": f"user_id {data['user_id']} does not exist"}), 400
 
         # Kiểm tra parking_id tồn tại
-        parking = db["parkings"].find_one({"_id": data["parking_id"]})
+        parking = db["parkings"].find_one({"parking_id": data["parking_id"]})
         if not parking:
             return jsonify({"error": f"parking_id {data['parking_id']} does not exist"}), 400
 
-
         # Kiểm tra định dạng thời gian
-        from datetime import datetime
         try:
             time_in = datetime.fromisoformat(data["time_in"])
             time_out = datetime.fromisoformat(data["time_out"])
             if time_out < time_in:
                 return jsonify({"error": "time_out must be greater than time_in"}), 400
         except ValueError:
-            return jsonify({"error": "Invalid date format for time_in or time_out"}), 400
-
+            return jsonify({"error": "Invalid ISO format for time_in or time_out"}), 400
 
         # Tạo đối tượng History
         history = {
             "user_id": data["user_id"],
             "parking_id": data["parking_id"],
-            "license": data["license"],
-            "time_in": data["time_in"],
-            "time_out": data["time_out"],
-            "parking_time": data["parking_time"]
+            "license_plate": data["license_plate"],
+            "time_in": time_in,
+            "time_out": time_out,
+            "parking_time": float(data["parking_time"]),
+            "total_price": float(data["total_price"])
         }
 
         # Thêm vào MongoDB
@@ -60,6 +60,8 @@ def add_history():
 
     except Exception as e:
         return jsonify({"error": "Unexpected error", "details": str(e)}), 500
+
+    
 @history_bp.route('/get_parking_histories', methods=['POST'])
 def get_parking_histories():
     try:
@@ -78,14 +80,15 @@ def get_parking_histories():
         # Lấy thông tin bãi đỗ xe và chuẩn bị dữ liệu trả về
         response_data = []
         for history in histories:
-            parking = parking_collection.find_one({"_id": history["parking_id"]})
+            parking = parking_collection.find_one({"parking_id": history["parking_id"]})
             if parking:
                 response_data.append({
-                    "parking_name": parking["parking_name"],
-                    "license": history["license"],
-                    "parking_time": history["parking_time"],
-                    "time_in" : history["time_in"],
-                    "time_out": history["time_out"]
+                    "parking_name": parking.get("parking_name", "Unknown"),
+                    "license_plate": history.get("license_plate", ""),
+                    "parking_time": history.get("parking_time", 0),
+                    "total_price": history.get("total_price", 0),
+                    "time_in": history["time_in"].isoformat() if isinstance(history["time_in"], datetime) else history["time_in"],
+                    "time_out": history["time_out"].isoformat() if isinstance(history["time_out"], datetime) else history["time_out"]
                 })
 
         return jsonify({

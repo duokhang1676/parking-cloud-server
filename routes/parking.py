@@ -75,21 +75,28 @@ def get_parking_info():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     
-# Cập nhật thông tin bãi đỗ xe
-@parking_bp.route("/<parking_id>", methods=["PUT"])
-def update_parking(parking_id):
+@parking_bp.route("/update_parking", methods=["POST"])
+def update_parking():
     data = request.json
 
-    if not data:
+    parking_id = data.get("parking_id")
+    if not parking_id:
+        return jsonify({"error": "Missing 'parking_id' in request"}), 400
+
+    # Xóa parking_id ra khỏi `data` để không ghi đè lại
+    update_data = {k: v for k, v in data.items() if k != "parking_id"}
+
+    if not update_data:
         return jsonify({"error": "No update data provided"}), 400
 
     # Nếu có cập nhật mật khẩu thì mã hóa
-    if "password" in data:
-        data["password"] = generate_password_hash(data["password"])
+    if "password" in update_data:
+        update_data["password"] = generate_password_hash(update_data["password"])
 
-    result = parking_collection.update_one({"parking_id": parking_id}, {"$set": data})
+    result = parking_collection.update_one({"parking_id": parking_id}, {"$set": update_data})
 
     if result.matched_count == 0:
         return jsonify({"error": "Parking not found"}), 404
 
     return jsonify({"message": "Parking updated successfully"}), 200
+

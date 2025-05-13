@@ -17,14 +17,21 @@ def get_environments():
     return jsonify(environments), 200
 
 # get environment by parking_id
-@environment_bp.route("/<parking_id>", methods=["GET"])
-def get_environment_by_parking_id(parking_id):
+@environment_bp.route("/get_environment", methods=["POST"])
+def get_environment_by_parking_id():
+    data = request.json
+    parking_id = data.get("parking_id")
+
+    if not parking_id:
+        return jsonify({"status": "error", "message": "Missing 'parking_id'"}), 400
+
     env = environment_collection.find_one({"parking_id": parking_id}, {"_id": 0})
     
     if env:
         return jsonify({"status": "success", "data": env}), 200
     else:
         return jsonify({"status": "error", "message": "Environment data not found"}), 404
+
     
 # insert environment
 @environment_bp.route("/", methods=["POST"])
@@ -50,13 +57,13 @@ def insert_environment():
     }), 201
 
 # update environment
-@environment_bp.route("/<parking_id>", methods=["PUT"])
-def update_environment(parking_id):
+@environment_bp.route("/update_environment", methods=["POST"])
+def update_environment():
     data = request.json
+    parking_id = data.get("parking_id")
 
-    # Kiểm tra dữ liệu có hợp lệ không
-    if not data:
-        return jsonify({"error": "No update data provided"}), 400
+    if not parking_id:
+        return jsonify({"error": "Missing 'parking_id'"}), 400
 
     # Kiểm tra các trường cần thiết
     update_fields = ["temperature", "humidity", "light"]
@@ -65,7 +72,6 @@ def update_environment(parking_id):
     if not valid_data:
         return jsonify({"error": "No valid fields to update"}), 400
 
-    # Cập nhật thông tin môi trường theo parking_id
     result = environment_collection.update_one(
         {"parking_id": parking_id},
         {"$set": valid_data}
