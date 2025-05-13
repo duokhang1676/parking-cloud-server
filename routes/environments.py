@@ -37,11 +37,17 @@ def get_environment_by_parking_id():
 @environment_bp.route("/", methods=["POST"])
 def insert_environment():
     data = request.json
+    parking_id = data.get("parking_id")
 
     # Kiểm tra các trường bắt buộc
     required_fields = ["parking_id", "temperature", "humidity", "light"]
     if not all(field in data for field in required_fields):
         return jsonify({"error": "Missing required fields"}), 400
+    
+    # Kiểm tra bãi đỗ tồn tại
+    parking_lot = parking_collection.find_one({"parking_id": parking_id})
+    if not parking_lot:
+        return jsonify({"message": "Parking lot not found", "status": "not_found"}), 404
 
     # Thêm dữ liệu vào MongoDB
     result = environment_collection.insert_one({
