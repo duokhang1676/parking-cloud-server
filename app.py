@@ -5,6 +5,7 @@ from routes.registers import register_bp
 from routes.customers import customer_bp
 from routes.parking_areas import parking_area_bp
 from routes.histories import history_bp
+from routes.coordinates import coordinate_bp
 
 # Tạo ứng dụng Flask
 app = Flask(__name__)
@@ -16,6 +17,7 @@ app.register_blueprint(register_bp, url_prefix="/api/registers")
 app.register_blueprint(customer_bp, url_prefix="/api/customers")
 app.register_blueprint(parking_area_bp, url_prefix="/api/parking_areas")
 app.register_blueprint(history_bp, url_prefix="/api/histories")
+app.register_blueprint(coordinate_bp, url_prefix="/api/coordinates")
 
 @app.route("/")
 def index():
