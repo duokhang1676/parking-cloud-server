@@ -16,7 +16,7 @@ def get_all_coordinates():
 
 # Lấy coordinates theo parking_id
 @coordinate_bp.route('/<string:parking_id>', methods=['GET'])
-def get_coordinates(parking_id):
+def get_coordinates_by_parking_id(parking_id):
     coordinates = list(coordinates_collection.find({'parking_id': parking_id}, {'_id': 0}))
     if not coordinates:
         return jsonify({'message': 'Coordinates not found'}), 404
@@ -24,7 +24,7 @@ def get_coordinates(parking_id):
 
 # Lấy coordinates theo parking_id và camera_id
 @coordinate_bp.route('/<string:parking_id>/<string:camera_id>', methods=['GET'])
-def get_coordinates(parking_id, camera_id):
+def get_coordinates_by_parking_id_and_camera_id(parking_id, camera_id):
     coordinates = list(coordinates_collection.find({'parking_id': parking_id, 'camera_id': camera_id}, {'_id': 0}))
     if not coordinates:
         return jsonify({'message': 'Coordinates not found'}), 404
