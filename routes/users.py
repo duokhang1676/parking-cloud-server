@@ -158,7 +158,7 @@ def get_registered_parkings():
             parking_id = doc.get("parking_id")
             if parking_id:
                 # Ánh xạ `parking_id` sang `_id` trong collection parking
-                parking_doc = parking_collection.find_one({"_id": parking_id})
+                parking_doc = parking_collection.find_one({"parking_id": parking_id})
                 if parking_doc:
                     registered_parking_ids.add(
                         f"{parking_doc.get('address')}, {parking_doc.get('parking_name')}"
