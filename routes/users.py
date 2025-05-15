@@ -19,33 +19,64 @@ def get_users():
 @user_bp.route("/", methods=["POST"])
 def create_user():
     data = request.json
+
     # Kiểm tra các trường cần thiết
-    if not all(key in data for key in ("user_id", "user_name", "phone", "password")):
+    if not all(key in data for key in ("user_id", "user_name", "password")):
         return jsonify({"error": "Missing fields"}), 400
 
     # Kiểm tra nếu user_id đã tồn tại
     if users_collection.find_one({"user_id": data["user_id"]}):
         return jsonify({"error": "User already exists"}), 400
 
+    # Mã hóa mật khẩu trước khi lưu
+    data["password"] = generate_password_hash(data["password"])
+
     users_collection.insert_one(data)
     return jsonify({"message": "User created successfully"}), 201
 
+
 # Cập nhật thông tin người dùng
-@user_bp.route("/<user_id>", methods=["PUT"])
-def update_user(user_id):
+@user_bp.route("/update_user", methods=["POST"])
+def update_user():
     data = request.json
-    result = users_collection.update_one({"user_id": user_id}, {"$set": data})
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({"error": "Missing 'user_id'"}), 400
+
+    # Loại bỏ user_id khỏi phần dữ liệu cần cập nhật
+    update_data = {k: v for k, v in data.items() if k != "user_id"}
+
+    if not update_data:
+        return jsonify({"error": "No fields to update"}), 400
+
+    # Mã hóa mật khẩu nếu có trường password
+    if "password" in update_data:
+        update_data["password"] = generate_password_hash(update_data["password"])
+
+    result = users_collection.update_one({"user_id": user_id}, {"$set": update_data})
+
     if result.matched_count == 0:
         return jsonify({"error": "User not found"}), 404
+
     return jsonify({"message": "User updated successfully"}), 200
 
 # Xóa người dùng
-@user_bp.route("/<user_id>", methods=["DELETE"])
-def delete_user(user_id):
+@user_bp.route("/delete_user", methods=["POST"])
+def delete_user():
+    data = request.get_json()
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({"error": "Missing 'user_id'"}), 400
+
     result = users_collection.delete_one({"user_id": user_id})
     if result.deleted_count == 0:
         return jsonify({"error": "User not found"}), 404
+
     return jsonify({"message": "User deleted successfully"}), 200
+
+
 # API đăng nhập với mật khẩu mã hóa
 @user_bp.route("/login", methods=["POST"])
 def login():
@@ -127,7 +158,7 @@ def get_registered_parkings():
             parking_id = doc.get("parking_id")
             if parking_id:
                 # Ánh xạ `parking_id` sang `_id` trong collection parking
-                parking_doc = parking_collection.find_one({"_id": parking_id})
+                parking_doc = parking_collection.find_one({"parking_id": parking_id})
                 if parking_doc:
                     registered_parking_ids.add(
                         f"{parking_doc.get('address')}, {parking_doc.get('parking_name')}"

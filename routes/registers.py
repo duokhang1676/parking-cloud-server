@@ -1,13 +1,15 @@
 from flask import Blueprint, request, jsonify
 from db import get_db
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import json
 from bson import json_util
 
 # Khởi tạo Blueprint cho register
 register_bp = Blueprint("register", __name__)
 db = get_db()
-register_collection = db["register"]  # Collection cho Register
+register_collection = db["registers"]  # Collection cho Register
+parking_collection = db["parkings"]  # Collection cho Parkings
+users_collection = db["users"]  # Collection cho Users
 
 # Lấy danh sách đăng ký
 @register_bp.route("/", methods=["GET"])
@@ -18,70 +20,188 @@ def get_registers():
 @register_bp.route('/get_register_list', methods=['POST'])
 def get_register_list():
     try:
-        # Lấy dữ liệu từ request
         data = request.get_json()
         parking_id = data.get("parking_id")
 
         if not parking_id:
             return jsonify({"status": "error", "message": "parking_id is required"}), 400
 
-        # Tìm tài liệu `registers` theo parking_id
-        registers_doc = register_collection.find({"parking_id": parking_id}, {"_id":0,"parking_id":0})
-        registers_list = list(registers_doc)
-        registers_json = json.loads(json_util.dumps(registers_list))
-        print(registers_json)
-        if not registers_doc:
+        # Tìm tất cả các đăng ký theo parking_id
+        registers_cursor = register_collection.find(
+            {"parking_id": parking_id},
+            {
+                "_id": 0,
+                "user_id": 1,
+                "license_plate": 1,
+                "register_time": 1,
+                "expired": 1,
+                "last_update": 1
+            }
+        )
+
+        registers_list = list(registers_cursor)
+
+        if not registers_list:
             return jsonify({"status": "error", "message": "No registers found for this parking_id"}), 404
 
-        # Chuẩn bị phản hồi
-        response = {
+        # Convert ObjectId/Date to JSON-serializable
+        registers_json = json.loads(json_util.dumps(registers_list))
+
+        return jsonify({
             "status": "success",
             "message": "Registers retrieved successfully",
             "data": registers_json
-        }
-        return jsonify(response), 200
+        }), 200
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
-@register_bp.route('/register_parking', methods=['POST'])
+# insert register
+@register_bp.route('/add_register_parking', methods=['POST'])
 def register_parking():
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    user_id = data.get("user_id")
-    parking_id = data.get("parking_id")
-    license_plate = data.get("license_plate")
+        user_id = data.get("user_id")
+        parking_id = data.get("parking_id")
+        license_plate = data.get("license_plate")
 
-    if not user_id or not parking_id or not license_plate:
-        return jsonify({"message": "Missing required fields", "status": "fail"}), 400
+        if not user_id or not parking_id or not license_plate:
+            return jsonify({"message": "Missing required fields", "status": "fail"}), 400
 
-    # Kiểm tra thông tin đã đăng ký và còn hiệu lực
-    existing_register = register_collection.find_one({
-        "user_id": user_id,
-        "parking_id": parking_id,
-        "register_list.license_plate": license_plate
-    })
+        now = datetime.now(timezone.utc)
+        expired_time = now + timedelta(days=30)
 
-    if existing_register:
-        # Kiểm tra thời gian hiệu lực
-        for reg in existing_register.get("register_list", []):
-            if reg["license_plate"] == license_plate and reg["expired"] > datetime.now():
-                return jsonify({"message": "License plate already registered and still valid", "status": "exists"}), 409
+        # Kiểm tra user_id có tồn tại không
+        user_exists = users_collection.find_one({"user_id": user_id})
+        if not user_exists:
+            return jsonify({"message": "User does not exist", "status": "fail"}), 400
 
-    # Thêm mới thông tin nếu không còn hiệu lực hoặc chưa đăng ký
-    register_data = {
-        "license_plate": license_plate,
-        "register_time": datetime.now(),
-        "expired": datetime.now() + timedelta(days=30)  # Đăng ký 1 tháng
-    }
+        # Kiểm tra trạng thái bãi đỗ
+        parking_doc = parking_collection.find_one({"parking_id": parking_id})
+        if not parking_doc:
+            return jsonify({
+                "message": "Parking lot not found",
+                "status": "not_found"
+            }), 404
 
-    # Cập nhật hoặc thêm mới vào cơ sở dữ liệu
-    register_collection.update_one(
-        {"user_id": user_id, "parking_id": parking_id},
-        {"$push": {"register_list": register_data}},
-        upsert=True
-    )
+        if parking_doc.get("status") != "active":
+            return jsonify({
+                "message": "Parking lot is not active",
+                "status": "inactive"
+            }), 403
 
-    return jsonify({"message": "Registration successful", "status": "success"}), 201
+        # Tránh trùng license_plate giữa user khác trong cùng parking_id
+        same_plate = register_collection.find_one({
+            "license_plate": license_plate,
+            "parking_id": parking_id,
+            "expired": {"$gt": now}
+        })
+
+        if same_plate and same_plate["user_id"] != user_id:
+            return jsonify({
+                "message": "This license plate is already registered by another user",
+                "status": "conflict"
+            }), 409
+
+        #  Biển số đã đăng ký và còn hiệu lực bởi chính user
+        existing = register_collection.find_one({
+            "user_id": user_id,
+            "parking_id": parking_id,
+            "license_plate": license_plate,
+            "expired": {"$gt": now}
+        })
+
+        if existing:
+            return jsonify({
+                "message": "License plate already registered and still valid",
+                "status": "exists"
+            }), 409
+
+        # Tạo bản ghi mới
+        register_data = {
+            "parking_id": parking_id,
+            "user_id": user_id,
+            "license_plate": license_plate,
+            "register_time": now,
+            "expired": expired_time,
+            "last_update": now
+        }
+
+        register_collection.insert_one(register_data)
+
+        return jsonify({"message": "Registration successful", "status": "success"}), 201
+
+    except Exception as e:
+        return jsonify({"message": str(e), "status": "error"}), 500
+    
+# update register
+
+@register_bp.route('/update_register_parking', methods=['PUT'])
+def update_register_parking():
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")
+        parking_id = data.get("parking_id")
+        license_plate = data.get("license_plate")
+
+        if not user_id or not parking_id or not license_plate:
+            return jsonify({"message": "Missing required fields", "status": "fail"}), 400
+
+        now = datetime.now(timezone.utc)
+        # Kiểm tra user_id có tồn tại không
+        user_exists = users_collection.find_one({"user_id": user_id})
+        if not user_exists:
+            return jsonify({"message": "User does not exist", "status": "fail"}), 400
+
+        # Kiểm tra bãi đỗ tồn tại
+        parking_lot = parking_collection.find_one({"parking_id": parking_id})
+        if not parking_lot:
+            return jsonify({"message": "Parking lot not found", "status": "not_found"}), 404
+
+        # Kiểm tra trạng thái bãi đỗ
+        if parking_lot.get("status") != "active":
+            return jsonify({"message": "Parking lot is not active", "status": "inactive"}), 403
+
+        # Kiểm tra biển số đã được user này đăng ký chưa
+        existing = register_collection.find_one({
+            "user_id": user_id,
+            "parking_id": parking_id,
+            "license_plate": license_plate
+        })
+
+        if not existing:
+            return jsonify({"message": "No registration found to update", "status": "not_found"}), 404
+
+        # Kiểm tra xem biển số này có đang được user khác dùng và còn hiệu lực không
+        conflict = register_collection.find_one({
+            "user_id": {"$ne": user_id},
+            "parking_id": parking_id,
+            "license_plate": license_plate,
+            "expired": {"$gt": now}
+        })
+
+        if conflict:
+            return jsonify({"message": "This license plate is already used by another user", "status": "conflict"}), 409
+
+        # Cập nhật thời gian hết hạn thêm 30 ngày kể từ hiện tại
+        updated_fields = {
+            "register_time": now,
+            "expired": now + timedelta(days=30),
+            "last_update": now
+        }
+
+        register_collection.update_one(
+            {
+                "user_id": user_id,
+                "parking_id": parking_id,
+                "license_plate": license_plate
+            },
+            {"$set": updated_fields}
+        )
+
+        return jsonify({"message": "Update successful", "status": "success"}), 200
+
+    except Exception as e:
+        return jsonify({"message": str(e), "status": "error"}), 500
 
