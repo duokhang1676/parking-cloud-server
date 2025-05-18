@@ -1,14 +1,14 @@
 from flask import Blueprint, request, jsonify
 from db import get_db
 
-parked_vehicles_bp = Blueprint("parked_vehicle", __name__)
+parked_vehicle_bp = Blueprint("parked_vehicle", __name__)
 db = get_db()
 parked_vehicle_collection = db["parked_vehicles"]
 parking_collection = db["parkings"]
 
 
 # get parked vehicles by parking_id
-@parked_vehicles_bp.route('/get_parked_vehicles', methods=['POST'])
+@parked_vehicle_bp.route('/get_parked_vehicles', methods=['POST'])
 def get_parked_vehicles():
     data = request.get_json()
     parking_id = data.get('parking_id')
@@ -28,7 +28,7 @@ def get_parked_vehicles():
 
 
 # add vehicle to list
-@parked_vehicles_bp.route('/add_vehicle', methods=['POST'])
+@parked_vehicle_bp.route('/add_vehicle', methods=['POST'])
 def add_vehicle():
     data = request.get_json()
     parking_id = data.get('parking_id')
@@ -52,7 +52,7 @@ def add_vehicle():
 
 
 # remove vehicle from list
-@parked_vehicles_bp.route('/remove_vehicle', methods=['DELETE'])
+@parked_vehicle_bp.route('/remove_vehicle', methods=['DELETE'])
 def remove_vehicle():
     data = request.get_json()
     parking_id = data.get('parking_id')
@@ -77,7 +77,7 @@ def remove_vehicle():
 
 
 # update slot_name and num_slot
-@parked_vehicles_bp.route('/update_vehicle', methods=['PUT'])
+@parked_vehicle_bp.route('/update_vehicle', methods=['PUT'])
 def update_vehicle():
     data = request.get_json()
     parking_id = data.get('parking_id')
