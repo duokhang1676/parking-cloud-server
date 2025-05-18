@@ -113,7 +113,7 @@ def update_vehicle():
     
 # update entire list
 @parked_vehicle_bp.route('/update_vehicle_list', methods=['PUT'])
-def update_vehicle():
+def update_vehicle_list():
     data = request.get_json()
     parking_id = data.get('parking_id')
     new_list = data.get('list')
