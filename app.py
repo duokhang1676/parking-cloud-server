@@ -3,7 +3,6 @@ from routes.users import user_bp
 from routes.parking import parking_bp
 from routes.registers import register_bp
 from routes.customers import customer_bp
-from routes.parking_areas import parking_area_bp
 from routes.histories import history_bp
 from routes.environments import environment_bp
 from routes.coordinates import coordinates_bp
@@ -18,7 +17,6 @@ app.register_blueprint(user_bp, url_prefix="/api/users")
 app.register_blueprint(parking_bp, url_prefix="/api/parking")
 app.register_blueprint(register_bp, url_prefix="/api/registers")
 app.register_blueprint(customer_bp, url_prefix="/api/customers")
-app.register_blueprint(parking_area_bp, url_prefix="/api/parking_areas")
 app.register_blueprint(history_bp, url_prefix="/api/histories")
 app.register_blueprint(environment_bp, url_prefix="/api/environments")
 app.register_blueprint(coordinates_bp, url_prefix="/api/coordinates")

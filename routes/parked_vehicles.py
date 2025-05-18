@@ -1,130 +1,112 @@
 from flask import Blueprint, request, jsonify
 from db import get_db
-from datetime import datetime, timezone, timedelta
 
 parked_vehicles_bp = Blueprint("parked_vehicles", __name__)
 db = get_db()
 parked_vehicle_collection = db["parked_vehicles"]
 parking_collection = db["parkings"]
-parking_slots_collection = db["parking_slots"]
 
 
 # get parked vehicles by parking_id
 @parked_vehicles_bp.route('/get_parked_vehicles', methods=['POST'])
 def get_parked_vehicles():
+    data = request.get_json()
+    parking_id = data.get('parking_id')
+
+    if not parking_id:
+        return jsonify({'error': 'parking_id is required'}), 400
+
     try:
-        data = request.get_json()
-        parking_id = data.get("parking_id")
+        parked_vehicles = parking_collection.find_one({'parking_id': parking_id}, {'list': 1, '_id': 0})
 
-        if not parking_id:
-            return jsonify({"message": "Missing parking_id", "status": "fail"}), 400
+        if not parked_vehicles:
+            return jsonify({'error': 'Parking ID not found'}), 404
 
-        doc = parked_vehicle_collection.find_one({"parking_id": parking_id}, {"_id": 0})
-        if not doc:
-            return jsonify({"message": "No data found", "status": "not_found"}), 404
-
-        return jsonify({"message": "Success", "status": "success", "data": doc}), 200
-
+        return jsonify({'parked_vehicles': parked_vehicles.get('list', [])}), 200
     except Exception as e:
-        return jsonify({"message": str(e), "status": "error"}), 500
+        return jsonify({'error': str(e)}), 500
 
-# insert parked vehicles
-@parked_vehicles_bp.route('/add_parked_vehicle', methods=['POST'])
-def add_parked_vehicle():
+
+# add vehicle to list
+@parked_vehicles_bp.route('/add_vehicle', methods=['POST'])
+def add_vehicle():
+    data = request.get_json()
+    parking_id = data.get('parking_id')
+    vehicle = data.get('vehicle')
+
+    if not parking_id or not vehicle:
+        return jsonify({'error': 'parking_id and vehicle data are required'}), 400
+
     try:
-        data = request.get_json()
-        parking_id = data.get("parking_id")
-        user_id = data.get("user_id")
-        customer_type = data.get("customer_type")
-        license_plate = data.get("license_plate")
-        slot_name = data.get("slot_name")
-        num_slot = data.get("num_slot")
-
-        # Kiểm tra bắt buộc
-        if not all([parking_id, user_id, customer_type, license_plate, slot_name, num_slot]):
-            return jsonify({"message": "Missing required fields", "status": "fail"}), 400
-
-        # Kiểm tra parking tồn tại
-        if not parking_collection.find_one({"parking_id": parking_id}):
-            return jsonify({"message": "Parking lot not found", "status": "not_found"}), 404
-
-        # Kiểm tra slot_name chưa bị chiếm
-        slot_doc = parking_slots_collection.find_one({"parking_id": parking_id})
-        if slot_doc and slot_name in slot_doc.get("occupied_list", []):
-            return jsonify({"message": "Slot is already occupied", "status": "slot_occupied"}), 409
-
-        # Kiểm tra xe đã vào chưa
-        if parked_vehicle_collection.find_one({"parking_id": parking_id, "list.license_plate": license_plate}):
-            return jsonify({"message": "Vehicle already parked", "status": "duplicate"}), 409
-
-        vehicle_data = {
-            "user_id": user_id,
-            "customer_type": customer_type,
-            "time_in": datetime.now(timezone.utc),
-            "license_plate": license_plate,
-            "slot_name": slot_name,
-            "num_slot": num_slot
-        }
-
-        # Ghi vào collection
-        parked_vehicle_collection.update_one(
-            {"parking_id": parking_id},
-            {"$push": {"list": vehicle_data}},
-            upsert=True
+        result = parking_collection.update_one(
+            {'parking_id': parking_id},
+            {'$push': {'list': vehicle}}
         )
 
-        # Cập nhật trạng thái slot
-        parking_slots_collection.update_one(
-            {"parking_id": parking_id},
-            {"$pull": {"available_list": slot_name}, "$push": {"occupied_list": slot_name}}
-        )
+        if result.matched_count == 0:
+            return jsonify({'error': 'Parking ID not found'}), 404
 
-        return jsonify({"message": "Vehicle added successfully", "status": "success"}), 201
-
+        return jsonify({'message': 'Vehicle added successfully'}), 200
     except Exception as e:
-        return jsonify({"message": str(e), "status": "error"}), 500
-    
-# update parked vehicles
-@parked_vehicles_bp.route('/update_parked_vehicle', methods=['POST'])
-def update_parked_vehicle():
+        return jsonify({'error': str(e)}), 500
+
+
+# remove vehicle from list
+@parked_vehicles_bp.route('/remove_vehicle', methods=['DELETE'])
+def remove_vehicle():
+    data = request.get_json()
+    parking_id = data.get('parking_id')
+    user_id = data.get('user_id')
+    license_plate = data.get('license_plate')
+
+    if not parking_id or not user_id or not license_plate:
+        return jsonify({'error': 'parking_id, user_id, and license_plate are required'}), 400
+
     try:
-        data = request.get_json()
-        parking_id = data.get("parking_id")
-        license_plate = data.get("license_plate")
-        time_out = datetime.now(timezone.utc)
-
-        if not parking_id or not license_plate:
-            return jsonify({"message": "Missing required fields", "status": "fail"}), 400
-
-        doc = parked_vehicle_collection.find_one({"parking_id": parking_id})
-        if not doc:
-            return jsonify({"message": "Parking lot not found", "status": "not_found"}), 404
-
-        found = False
-        for vehicle in doc["list"]:
-            if vehicle["license_plate"] == license_plate and "time_out" not in vehicle:
-                vehicle["time_out"] = time_out  # Ghi nhận thời điểm rời bãi
-                slot_to_release = vehicle["slot_name"]
-                found = True
-                break
-
-        if not found:
-            return jsonify({"message": "Vehicle not found or already checked out", "status": "not_found"}), 404
-
-        # Ghi lại danh sách đã cập nhật
-        parked_vehicle_collection.update_one(
-            {"parking_id": parking_id},
-            {"$set": {"list": doc["list"]}}
+        result = parking_collection.update_one(
+            {'parking_id': parking_id},
+            {'$pull': {'list': {'user_id': user_id, 'license_plate': license_plate}}}
         )
 
-        # Cập nhật lại slot
-        parked_vehicle_collection.update_one(
-            {"parking_id": parking_id},
-            {"$pull": {"occupied_list": slot_to_release}, "$addToSet": {"available_list": slot_to_release}}
-        )
+        if result.matched_count == 0:
+            return jsonify({'error': 'Parking ID not found'}), 404
 
-        return jsonify({"message": "Vehicle checked out successfully", "status": "success"}), 200
-
+        return jsonify({'message': 'Vehicle removed successfully'}), 200
     except Exception as e:
-        return jsonify({"message": str(e), "status": "error"}), 500
+        return jsonify({'error': str(e)}), 500
 
+
+# update slot_name and num_slot
+@parked_vehicles_bp.route('/update_vehicle', methods=['PUT'])
+def update_vehicle():
+    data = request.get_json()
+    parking_id = data.get('parking_id')
+    user_id = data.get('user_id')
+    license_plate = data.get('license_plate')
+    slot_name = data.get('slot_name')
+    num_slot = data.get('num_slot')
+
+    if not parking_id or not user_id or not license_plate:
+        return jsonify({'error': 'parking_id, user_id, and license_plate are required'}), 400
+
+    try:
+        result = parking_collection.update_one(
+            {
+                'parking_id': parking_id,
+                'list.user_id': user_id,
+                'list.license_plate': license_plate
+            },
+            {
+                '$set': {
+                    'list.$.slot_name': slot_name,
+                    'list.$.num_slot': num_slot
+                }
+            }
+        )
+
+        if result.matched_count == 0:
+            return jsonify({'error': 'Vehicle not found'}), 404
+
+        return jsonify({'message': 'Vehicle updated successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
