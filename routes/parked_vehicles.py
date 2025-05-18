@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db import get_db
 
-parked_vehicles_bp = Blueprint("parked_vehicles", __name__)
+parked_vehicles_bp = Blueprint("parked_vehicle", __name__)
 db = get_db()
 parked_vehicle_collection = db["parked_vehicles"]
 parking_collection = db["parkings"]
