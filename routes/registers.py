@@ -205,3 +205,41 @@ def update_register_parking():
     except Exception as e:
         return jsonify({"message": str(e), "status": "error"}), 500
 
+@register_bp.route("/get_registered_vehicles", methods=["POST"])
+def get_registered_vehicles():
+    data = request.get_json()
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({"status": "error", "message": "Missing 'user_id'"}), 400
+
+    # Lấy tất cả bản ghi đã đăng ký của user
+    registrations = list(register_collection.find(
+        {"user_id": user_id},
+        {"_id": 0, "license_plate": 1, "parking_id": 1}
+    ))
+
+    if not registrations:
+        return jsonify({"status": "success", "data": []}), 200
+
+    # Tạo set các parking_id để truy vấn 1 lần
+    parking_ids = list(set([r["parking_id"] for r in registrations]))
+
+    # Lấy tên bãi xe tương ứng
+    parking_map = {
+        p["parking_id"]: p["parking_name"]
+        for p in parking_collection.find(
+            {"parking_id": {"$in": parking_ids}},
+            {"_id": 0, "parking_id": 1, "parking_name": 1}
+        )
+    }
+
+    # Gắn tên bãi xe vào từng bản ghi
+    result = []
+    for r in registrations:
+        result.append({
+            "license_plate": r["license_plate"],
+            "parking_name": parking_map.get(r["parking_id"], "Unknown")
+        })
+
+    return jsonify({"status": "success", "data": result}), 200
