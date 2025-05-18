@@ -110,3 +110,26 @@ def update_vehicle():
         return jsonify({'message': 'Vehicle updated successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+# update entire list
+@parked_vehicle_bp.route('/update_vehicle_list', methods=['PUT'])
+def update_vehicle():
+    data = request.get_json()
+    parking_id = data.get('parking_id')
+    new_list = data.get('list')
+
+    if not parking_id or not new_list:
+        return jsonify({'error': 'parking_id and list are required'}), 400
+
+    try:
+        result = parking_collection.update_one(
+            {'parking_id': parking_id},
+            {'$set': {'list': new_list}}
+        )
+
+        if result.matched_count == 0:
+            return jsonify({'error': 'Parking ID not found'}), 404
+
+        return jsonify({'message': 'List updated successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
