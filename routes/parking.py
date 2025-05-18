@@ -12,6 +12,15 @@ parking_collection = db["parkings"]  # Collection cho Parking
 def get_parking():
     parking = list(parking_collection.find({}, {"_id": 0}))
     return jsonify(parking), 200
+
+@parking_bp.route("/get_active", methods=["GET"])
+def get_active_parking():
+    active_parkings = list(parking_collection.find(
+        {"status": "active"},
+        {"_id": 0}
+    ))
+    return jsonify(active_parkings), 200
+
 # Lấy bãi xe theo tên và địa chỉ
 @parking_bp.route('/get_parking_id', methods=['POST'])
 def get_parking_id():

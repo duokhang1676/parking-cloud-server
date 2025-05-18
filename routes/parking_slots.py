@@ -2,13 +2,13 @@ from flask import Blueprint, request, jsonify
 from db import get_db
 from datetime import datetime, timezone
 
-parking_slots_bp = Blueprint("parking_slots", __name__)
+parking_slot_bp = Blueprint("parking_slots", __name__)
 db = get_db()
 parking_slots_collection = db["parking_slots"]
 parking_collection = db["parkings"]
 
 # get by parking_id
-@parking_slots_bp.route("/get_parking_slots", methods=["POST"])
+@parking_slot_bp.route("/get_parking_slots", methods=["POST"])
 def get_parking_slots():
     data = request.get_json()
     parking_id = data.get("parking_id")
@@ -23,7 +23,7 @@ def get_parking_slots():
     return jsonify({"status": "success", "data": slot}), 200
 
 # insert parking slots
-@parking_slots_bp.route("/insert_parking_slots", methods=["POST"])
+@parking_slot_bp.route("/insert_parking_slots", methods=["POST"])
 def insert_parking_slots():
     data = request.get_json()
 
@@ -46,7 +46,7 @@ def insert_parking_slots():
     return jsonify({"message": "Parking slots inserted successfully"}), 201
 
 # update parking slots
-@parking_slots_bp.route("/update_parking_slots", methods=["POST"])
+@parking_slot_bp.route("/update_parking_slots", methods=["POST"])
 def update_parking_slots():
     data = request.get_json()
     parking_id = data.get("parking_id")

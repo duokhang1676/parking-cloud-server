@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from db import get_db
 from datetime import datetime, timezone, timedelta
 
-parked_vehicles_bp = Blueprint("parked_vehicles", __name__)
+parked_vehicle_bp = Blueprint("parked_vehicles", __name__)
 db = get_db()
 parked_vehicle_collection = db["parked_vehicles"]
 parking_collection = db["parkings"]
@@ -10,7 +10,7 @@ parking_slots_collection = db["parking_slots"]
 
 
 # get parked vehicles by parking_id
-@parked_vehicles_bp.route('/get_parked_vehicles', methods=['POST'])
+@parked_vehicle_bp.route('/get_parked_vehicles', methods=['POST'])
 def get_parked_vehicles():
     try:
         data = request.get_json()
@@ -29,7 +29,7 @@ def get_parked_vehicles():
         return jsonify({"message": str(e), "status": "error"}), 500
 
 # insert parked vehicles
-@parked_vehicles_bp.route('/add_parked_vehicle', methods=['POST'])
+@parked_vehicle_bp.route('/add_parked_vehicle', methods=['POST'])
 def add_parked_vehicle():
     try:
         data = request.get_json()
@@ -85,7 +85,7 @@ def add_parked_vehicle():
         return jsonify({"message": str(e), "status": "error"}), 500
     
 # update parked vehicles
-@parked_vehicles_bp.route('/update_parked_vehicle', methods=['POST'])
+@parked_vehicle_bp.route('/update_parked_vehicle', methods=['POST'])
 def update_parked_vehicle():
     try:
         data = request.get_json()
