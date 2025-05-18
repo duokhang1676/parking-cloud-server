@@ -6,7 +6,7 @@ from routes.customers import customer_bp
 from routes.parking_areas import parking_area_bp
 from routes.histories import history_bp
 from routes.environments import environment_bp
-from routes.coordinates import coordinates_bp
+from routes.coordinates import coordinate_bp
 from routes.parking_slots import parking_slots_bp
 from routes.parked_vehicles import parked_vehicles_bp
 
@@ -21,7 +21,7 @@ app.register_blueprint(customer_bp, url_prefix="/api/customers")
 app.register_blueprint(parking_area_bp, url_prefix="/api/parking_areas")
 app.register_blueprint(history_bp, url_prefix="/api/histories")
 app.register_blueprint(environment_bp, url_prefix="/api/environments")
-app.register_blueprint(coordinates_bp, url_prefix="/api/coordinates")
+app.register_blueprint(coordinate_bp, url_prefix="/api/coordinates")
 app.register_blueprint(parking_slots_bp, url_prefix="/api/parking_slots")
 app.register_blueprint(parked_vehicles_bp, url_prefix="/api/parked_vehicles")
 
