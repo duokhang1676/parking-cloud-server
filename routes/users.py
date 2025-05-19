@@ -6,7 +6,7 @@ from werkzeug.security import check_password_hash,generate_password_hash
 user_bp = Blueprint("user", __name__)
 db = get_db()
 users_collection = db["users"]  # Collection cho User
-register_collection = db["register"]
+register_collection = db["registers"]
 parking_collection = db["parkings"]
 
 # Lấy danh sách tất cả người dùng

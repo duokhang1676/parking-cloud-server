@@ -3,6 +3,7 @@ from db import get_db
 from datetime import datetime, timezone
 
 parking_slot_bp = Blueprint("parking_slot", __name__)
+
 db = get_db()
 parking_slots_collection = db["parking_slots"]
 parking_collection = db["parkings"]

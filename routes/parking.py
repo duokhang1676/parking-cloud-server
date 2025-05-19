@@ -12,6 +12,15 @@ parking_collection = db["parkings"]  # Collection cho Parking
 def get_parking():
     parking = list(parking_collection.find({}, {"_id": 0}))
     return jsonify(parking), 200
+
+@parking_bp.route("/get_active", methods=["GET"])
+def get_active_parking():
+    active_parkings = list(parking_collection.find(
+        {"status": "active"},
+        {"_id": 0}
+    ))
+    return jsonify(active_parkings), 200
+
 # Lấy bãi xe theo tên và địa chỉ
 @parking_bp.route('/get_parking_id', methods=['POST'])
 def get_parking_id():
@@ -19,9 +28,15 @@ def get_parking_id():
     address = data.get("address")
     parking_name = data.get("parking_name")
 
-    parking = parking_collection.find_one({"address": address, "parking_name": parking_name}, {"_id": 1})
+    # Truy vấn theo address và parking_name, trả về parking_id nếu tìm thấy
+    parking = parking_collection.find_one(
+        {"address": address, "parking_name": parking_name},
+        {"_id": 0, "parking_id": 1}
+    )
+
     if parking:
-        return jsonify({"parking_id": parking["_id"], "status": "success"}), 200
+        return jsonify({"parking_id": parking["parking_id"], "status": "success"}), 200
+
     return jsonify({"message": "Parking not found", "status": "fail"}), 404
 # Tạo bãi đỗ xe mới
 @parking_bp.route("/", methods=["POST"])
