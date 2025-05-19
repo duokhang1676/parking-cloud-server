@@ -13,7 +13,7 @@ coordinates_collection = db['coordinates']
 def get_all_coordinates():
     coordinates = list(coordinates_collection.find({}, {'_id': 0}))
     return jsonify(coordinates), 200
-
+#
 # Lấy coordinates theo parking_id
 @coordinate_bp.route('/<string:parking_id>', methods=['GET'])
 def get_coordinates_by_parking_id(parking_id):

@@ -59,6 +59,8 @@ def update_parking_slots():
         update_fields["available_list"] = data["available_list"]
     if "occupied_list" in data:
         update_fields["occupied_list"] = data["occupied_list"]
+    if "occupied_license_list" in data:
+        update_fields["occupied_license_list"] = data["occupied_license_list"]
 
     if not update_fields:
         return jsonify({"error": "No valid fields to update"}), 400

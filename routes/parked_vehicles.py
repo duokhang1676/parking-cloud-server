@@ -4,9 +4,7 @@ from db import get_db
 parked_vehicle_bp = Blueprint("parked_vehicle", __name__)
 db = get_db()
 parked_vehicle_collection = db["parked_vehicles"]
-parking_collection = db["parkings"]
 
-#
 # get parked vehicles by parking_id
 @parked_vehicle_bp.route('/get_parked_vehicles', methods=['POST'])
 def get_parked_vehicles():
@@ -17,10 +15,10 @@ def get_parked_vehicles():
         return jsonify({'error': 'parking_id is required'}), 400
 
     try:
-        parked_vehicles = parking_collection.find_one({'parking_id': parking_id}, {'list': 1, '_id': 0})
+        parked_vehicles = parked_vehicle_collection.find_one({'parking_id': parking_id}, {'list': 1, '_id': 0})
 
         if not parked_vehicles:
-            return jsonify({'error': 'Parking ID not found'}), 405
+            return jsonify({'error': 'Parking ID not found'}), 404
 
         return jsonify({'parked_vehicles': parked_vehicles.get('list', [])}), 200
     except Exception as e:
@@ -30,24 +28,24 @@ def get_parked_vehicles():
 # add vehicle to list
 @parked_vehicle_bp.route('/add_vehicle', methods=['POST'])
 def add_vehicle():
-    print("Received request to /add_vehicle")  # Ghi log ra console
     data = request.get_json()
     parking_id = data.get('parking_id')
     vehicle = data.get('vehicle')
-    print(f"Parking ID: {parking_id}, Vehicle: {vehicle}")  # Ghi log dữ liệu đầu vào
+
     if not parking_id or not vehicle:
         return jsonify({'error': 'parking_id and vehicle data are required'}), 400
+
     try:
-        result = parking_collection.update_one(
+        result = parked_vehicle_collection.update_one(
             {'parking_id': parking_id},
             {'$push': {'list': vehicle}}
         )
-        print(f"Update result: {result.matched_count}")  # Ghi log kết quả
+
         if result.matched_count == 0:
             return jsonify({'error': 'Parking ID not found'}), 404
+
         return jsonify({'message': 'Vehicle added successfully'}), 200
     except Exception as e:
-        print(f"Error: {str(e)}")  # Ghi log lỗi
         return jsonify({'error': str(e)}), 500
 
 
@@ -63,7 +61,7 @@ def remove_vehicle():
         return jsonify({'error': 'parking_id, user_id, and license_plate are required'}), 400
 
     try:
-        result = parking_collection.update_one(
+        result = parked_vehicle_collection.update_one(
             {'parking_id': parking_id},
             {'$pull': {'list': {'user_id': user_id, 'license_plate': license_plate}}}
         )
@@ -90,7 +88,7 @@ def update_vehicle():
         return jsonify({'error': 'parking_id, user_id, and license_plate are required'}), 400
 
     try:
-        result = parking_collection.update_one(
+        result = parked_vehicle_collection.update_one(
             {
                 'parking_id': parking_id,
                 'list.user_id': user_id,
@@ -122,7 +120,7 @@ def update_vehicle_list():
         return jsonify({'error': 'parking_id and list are required'}), 400
 
     try:
-        result = parking_collection.update_one(
+        result = parked_vehicle_collection.update_one(
             {'parking_id': parking_id},
             {'$set': {'list': new_list}}
         )
