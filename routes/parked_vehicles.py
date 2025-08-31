@@ -4,6 +4,7 @@ from db import get_db
 parked_vehicle_bp = Blueprint("parked_vehicle", __name__)
 db = get_db()
 parked_vehicle_collection = db["parked_vehicles"]
+parking_collection = db["parking"]
 
 # get parked vehicles by parking_id
 @parked_vehicle_bp.route('/get_parked_vehicles', methods=['POST'])
@@ -131,3 +132,55 @@ def update_vehicle_list():
         return jsonify({'message': 'List updated successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@parked_vehicle_bp.route("/get_user_parked_vehicles", methods=["POST"])
+def get_user_parked_vehicles():
+    data = request.get_json()
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({"status": "error", "message": "Missing 'user_id'"}), 400
+
+    # Lấy tất cả document có user_id trong list
+    parked_docs = list(parked_vehicle_collection.find(
+        {"list.user_id": user_id},
+        {"_id": 0, "parking_id": 1, "list": 1}
+    ))
+
+    if not parked_docs:
+        return jsonify({"status": "success", "data": []}), 200
+
+    # Map parking_id -> thông tin bãi xe
+    parking_ids = [doc["parking_id"] for doc in parked_docs]
+    parking_info_map = {
+        p["parking_id"]: {
+            "parking_name": p["parking_name"],
+            "address": p["address"],
+            "status": p["status"]
+        }
+        for p in parking_collection.find(
+            {"parking_id": {"$in": parking_ids}},
+            {"_id": 0, "parking_id": 1, "parking_name": 1, "address": 1, "status": 1}
+        )
+    }
+
+    # Gom dữ liệu trả ra
+    result = []
+    for doc in parked_docs:
+        parking_id = doc["parking_id"]
+        parking_info = parking_info_map.get(parking_id, {})
+
+        for vehicle in doc["list"]:
+            if vehicle["user_id"] == user_id:
+                result.append({
+                    "license_plate": vehicle["license_plate"],
+                    "slot_name": vehicle["slot_name"],
+                    "time_in": vehicle["time_in"],
+                    "customer_type": vehicle["customer_type"],
+                    "parking_id": parking_id,
+                    "parking_name": parking_info.get("parking_name", "Unknown"),
+                    "address": parking_info.get("address", "Unknown"),
+                    "status": parking_info.get("status", "Unknown")
+                })
+
+    return jsonify({"status": "success", "data": result}), 200
