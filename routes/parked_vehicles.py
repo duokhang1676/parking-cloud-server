@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from db import get_db
+import re
 
 parked_vehicle_bp = Blueprint("parked_vehicle", __name__)
 db = get_db()
@@ -133,54 +134,34 @@ def update_vehicle_list():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
-@parked_vehicle_bp.route("/get_user_parked_vehicles", methods=["POST"])
-def get_user_parked_vehicles():
-    data = request.get_json()
+@parked_vehicle_bp.route("/get_user_parked_vehicle", methods=["POST"])
+def get_user_parked_vehicle():
+    data = request.json
     user_id = data.get("user_id")
+    parking_id = data.get("parking_id")
 
-    if not user_id:
-        return jsonify({"status": "error", "message": "Missing 'user_id'"}), 400
+    if not user_id or not parking_id:
+        return jsonify({
+            "status": "error",
+            "message": "Missing 'user_id' or 'parking_id'"
+        }), 400
 
-    # Lấy tất cả document có user_id trong list
-    parked_docs = list(parked_vehicle_collection.find(
-        {"list.user_id": user_id},
-        {"_id": 0, "parking_id": 1, "list": 1}
-    ))
+    # Tìm xe đang đỗ của user trong đúng bãi này
+    parked_doc = parked_vehicle_collection.find_one(
+        {"parking_id": parking_id, "list.user_id": user_id},
+        {"_id": 0, "list.$": 1}
+    )
 
-    if not parked_docs:
-        return jsonify({"status": "success", "data": []}), 200
+    if not parked_doc or "list" not in parked_doc or len(parked_doc["list"]) == 0:
+        return jsonify({"status": "success", "data": None}), 200
 
-    # Map parking_id -> thông tin bãi xe
-    parking_ids = [doc["parking_id"] for doc in parked_docs]
-    parking_info_map = {
-        p["parking_id"]: {
-            "parking_name": p["parking_name"],
-            "address": p["address"],
-            "status": p["status"]
-        }
-        for p in parking_collection.find(
-            {"parking_id": {"$in": parking_ids}},
-            {"_id": 0, "parking_id": 1, "parking_name": 1, "address": 1, "status": 1}
-        )
+    vehicle_info = parked_doc["list"][0]
+
+    result = {
+        "license_plate": vehicle_info["license_plate"],
+        "slot_name": vehicle_info["slot_name"],
+        "time_in": vehicle_info["time_in"],
+        "parking_id": parking_id
     }
-
-    # Gom dữ liệu trả ra
-    result = []
-    for doc in parked_docs:
-        parking_id = doc["parking_id"]
-        parking_info = parking_info_map.get(parking_id, {})
-
-        for vehicle in doc["list"]:
-            if vehicle["user_id"] == user_id:
-                result.append({
-                    "license_plate": vehicle["license_plate"],
-                    "slot_name": vehicle["slot_name"],
-                    "time_in": vehicle["time_in"],
-                    "customer_type": vehicle["customer_type"],
-                    "parking_id": parking_id,
-                    "parking_name": parking_info.get("parking_name", "Unknown"),
-                    "address": parking_info.get("address", "Unknown"),
-                    "status": parking_info.get("status", "Unknown")
-                })
 
     return jsonify({"status": "success", "data": result}), 200
