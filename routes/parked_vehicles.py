@@ -153,15 +153,21 @@ def get_user_parked_vehicle():
     )
 
     if not parked_doc or "list" not in parked_doc or len(parked_doc["list"]) == 0:
-        return jsonify({"status": "success", "data": None}), 200
+        # Không tìm thấy xe của user trong bãi
+        return jsonify({
+            "status": "not_found",
+            "message": "No parked vehicle found for this user in the selected parking lot",
+            "data": None
+        }), 200
 
     vehicle_info = parked_doc["list"][0]
 
     result = {
-        "license_plate": vehicle_info["license_plate"],
-        "slot_name": vehicle_info["slot_name"],
-        "time_in": vehicle_info["time_in"],
-        "parking_id": parking_id
+        "license_plate": vehicle_info.get("license_plate"),
+        "slot_name": vehicle_info.get("slot_name"),
+        "time_in": vehicle_info.get("time_in"),
+        "parking_id": parking_id,
+        "num_slot": vehicle_info.get("num_slot")
     }
 
     return jsonify({"status": "success", "data": result}), 200
