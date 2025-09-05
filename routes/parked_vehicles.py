@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
 from db import get_db
+import re
 
 parked_vehicle_bp = Blueprint("parked_vehicle", __name__)
 db = get_db()
 parked_vehicle_collection = db["parked_vehicles"]
+parking_collection = db["parking"]
 
 # get parked vehicles by parking_id
 @parked_vehicle_bp.route('/get_parked_vehicles', methods=['POST'])
@@ -131,3 +133,35 @@ def update_vehicle_list():
         return jsonify({'message': 'List updated successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@parked_vehicle_bp.route("/get_user_parked_vehicle", methods=["POST"])
+def get_user_parked_vehicle():
+    data = request.json
+    user_id = data.get("user_id")
+    parking_id = data.get("parking_id")
+
+    if not user_id or not parking_id:
+        return jsonify({
+            "status": "error",
+            "message": "Missing 'user_id' or 'parking_id'"
+        }), 400
+
+    # Tìm xe đang đỗ của user trong đúng bãi này
+    parked_doc = parked_vehicle_collection.find_one(
+        {"parking_id": parking_id, "list.user_id": user_id},
+        {"_id": 0, "list.$": 1}
+    )
+
+    if not parked_doc or "list" not in parked_doc or len(parked_doc["list"]) == 0:
+        return jsonify({"status": "success", "data": None}), 200
+
+    vehicle_info = parked_doc["list"][0]
+
+    result = {
+        "license_plate": vehicle_info["license_plate"],
+        "slot_name": vehicle_info["slot_name"],
+        "time_in": vehicle_info["time_in"],
+        "parking_id": parking_id
+    }
+
+    return jsonify({"status": "success", "data": result}), 200
