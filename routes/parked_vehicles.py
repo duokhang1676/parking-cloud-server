@@ -134,40 +134,95 @@ def update_vehicle_list():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
+# @parked_vehicle_bp.route("/get_user_parked_vehicle", methods=["POST"])
+# def get_user_parked_vehicle():
+#     data = request.json
+#     user_id = data.get("user_id")
+#     parking_id = data.get("parking_id")
+
+#     if not user_id or not parking_id:
+#         return jsonify({
+#             "status": "error",
+#             "message": "Missing 'user_id' or 'parking_id'"
+#         }), 400
+
+#     # Tìm xe đang đỗ của user trong đúng bãi này
+#     parked_doc = parked_vehicle_collection.find_one(
+#         {"parking_id": parking_id, "list.user_id": user_id},
+#         {"_id": 0, "list.$": 1}
+#     )
+
+#     if not parked_doc or "list" not in parked_doc or len(parked_doc["list"]) == 0:
+#         # Không tìm thấy xe của user trong bãi
+#         return jsonify({
+#             "status": "not_found",
+#             "message": "No parked vehicle found for this user in the selected parking lot",
+#             "data": None
+#         }), 200
+
+#     vehicle_info = parked_doc["list"][0]
+
+#     result = {
+#         "license_plate": vehicle_info.get("license_plate"),
+#         "slot_name": vehicle_info.get("slot_name"),
+#         "time_in": vehicle_info.get("time_in"),
+#         "parking_id": parking_id,
+#         "num_slot": vehicle_info.get("num_slot")
+#     }
+
+#     return jsonify({"status": "success", "data": result}), 200
 @parked_vehicle_bp.route("/get_user_parked_vehicle", methods=["POST"])
 def get_user_parked_vehicle():
     data = request.json
     user_id = data.get("user_id")
     parking_id = data.get("parking_id")
 
+    # Kiểm tra đầu vào
     if not user_id or not parking_id:
         return jsonify({
             "status": "error",
             "message": "Missing 'user_id' or 'parking_id'"
         }), 400
 
-    # Tìm xe đang đỗ của user trong đúng bãi này
+    # Tìm document bãi đỗ xe tương ứng
     parked_doc = parked_vehicle_collection.find_one(
-        {"parking_id": parking_id, "list.user_id": user_id},
-        {"_id": 0, "list.$": 1}
+        {"parking_id": parking_id},
+        {"_id": 0, "list": 1}
     )
 
-    if not parked_doc or "list" not in parked_doc or len(parked_doc["list"]) == 0:
-        # Không tìm thấy xe của user trong bãi
+    # Kiểm tra bãi có tồn tại không
+    if not parked_doc or "list" not in parked_doc:
+        return jsonify({
+            "status": "error",
+            "message": "Parking lot not found or no vehicles found",
+            "data": None
+        }), 404
+
+    # Lọc ra tất cả các xe thuộc về user_id
+    user_vehicles = [v for v in parked_doc["list"] if v.get("user_id") == user_id]
+
+    # Nếu không có xe nào của user trong bãi
+    if not user_vehicles:
         return jsonify({
             "status": "not_found",
-            "message": "No parked vehicle found for this user in the selected parking lot",
-            "data": None
+            "message": "No parked vehicles found for this user in the selected parking lot",
+            "data": []
         }), 200
 
-    vehicle_info = parked_doc["list"][0]
+    # Trả danh sách xe của user
+    result = []
+    for v in user_vehicles:
+        result.append({
+            "license_plate": v.get("license_plate"),
+            "slot_name": v.get("slot_name"),
+            "time_in": v.get("time_in"),
+            "parking_id": parking_id,
+            "num_slot": v.get("num_slot")
+        })
 
-    result = {
-        "license_plate": vehicle_info.get("license_plate"),
-        "slot_name": vehicle_info.get("slot_name"),
-        "time_in": vehicle_info.get("time_in"),
-        "parking_id": parking_id,
-        "num_slot": vehicle_info.get("num_slot")
-    }
+    return jsonify({
+        "status": "success",
+        "count": len(result),
+        "data": result
+    }), 200
 
-    return jsonify({"status": "success", "data": result}), 200
