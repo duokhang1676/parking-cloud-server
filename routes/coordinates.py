@@ -53,12 +53,15 @@ def insert_coordinates():
 @coordinate_bp.route('/update/<string:parking_id>/<string:camera_id>', methods=['PUT'])
 def update_coordinates(parking_id, camera_id):
     data = request.json
+    print("Received JSON:", data)
     update_data = {}
 
     if 'image_url' in data:
         update_data['image_url'] = data['image_url']
     if 'coordinates_list' in data:
         update_data['coordinates_list'] = data['coordinates_list']
+    if 'coordinates_reid_list' in data:
+        update_data['coordinates_reid_list'] = data['coordinates_reid_list']
 
     if not update_data:
         return jsonify({'message': 'No data provided for update'}), 400
