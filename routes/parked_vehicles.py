@@ -118,7 +118,7 @@ def update_vehicle_list():
     parking_id = data.get('parking_id')
     new_list = data.get('list')
 
-    if not parking_id or not new_list:
+    if parking_id is None or new_list is None:
         return jsonify({'error': 'parking_id and list are required'}), 400
 
     try:
