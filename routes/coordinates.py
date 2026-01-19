@@ -34,7 +34,7 @@ def get_coordinates_by_parking_id_and_camera_id(parking_id, camera_id):
 @coordinate_bp.route('/add', methods=['POST'])
 def insert_coordinates():
     data = request.json
-    required_fields = ['parking_id', 'camera_id','image_url' 'coordinates_list']
+    required_fields = ['parking_id', 'camera_id','image_url', 'coordinates_list', 'coordinates_reid_list']
     
     if not all(field in data for field in required_fields):
         return jsonify({'message': 'Missing required fields'}), 400
@@ -43,7 +43,8 @@ def insert_coordinates():
         'parking_id': data['parking_id'],
         'camera_id': data['camera_id'],
         'image_url': data.get('image_url', ''),
-        'coordinates_list': data['coordinates_list']
+        'coordinates_list': data['coordinates_list'],
+        'coordinates_reid_list': data['coordinates_reid_list']
     }
 
     coordinates_collection.insert_one(new_coordinate)
